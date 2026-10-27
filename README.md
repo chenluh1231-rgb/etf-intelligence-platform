@@ -2,7 +2,7 @@
 
 个性化 A 股 ETF 投资情报与匹配平台：投资者画像 → ETF 匹配 → 每日情报。
 
-**在线版（GitHub Pages）**：`https://<你的用户名>.github.io/<仓库名>/`
+**在线版（GitHub Pages）**：https://chenluh1231-rgb.github.io/etf-intelligence-platform/
 所有计算在浏览器本地完成，上传的持仓文件不会离开你的电脑。
 
 **本地版（FastAPI + SQLite）**：`python server.py` 后访问 http://127.0.0.1:8770

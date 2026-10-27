@@ -22,7 +22,8 @@ from .matching import GOAL_VECTORS
 from .overlap import stock_weights
 from .warehouse import ensure_holdings, fetch_kline_map
 
-SITE_DATA_DIR = Path(__file__).resolve().parents[1] / "site" / "data"
+# GitHub Pages 只认仓库根目录或 /docs，站点目录已从 site/ 更名为 docs/
+SITE_DATA_DIR = Path(__file__).resolve().parents[1] / "docs" / "data"
 RET_SCALE = 100          # 收益放大倍数：0.01% 精度
 RET_DAYS = 250
 
