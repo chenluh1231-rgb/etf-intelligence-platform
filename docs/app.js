@@ -88,11 +88,11 @@
     }));
 
     // 所有上传入口走同一个处理函数：一次上传，全局生效
-    ['#fileDash', '#fileDashCsv', '#fileShotMatch', '#fileMatch', '#fileAny']
-      .forEach((sel) => {
-        const el = $(sel);
-        if (el) el.addEventListener('change', (e) => { onFile(e.target.files[0]); e.target.value = ''; });
-      });
+    // （Match 页已不再放上传入口，只有 Dashboard 与顶部持仓条）
+    ['#fileDash', '#fileDashCsv', '#fileAny'].forEach((sel) => {
+      const el = $(sel);
+      if (el) el.addEventListener('change', (e) => { onFile(e.target.files[0]); e.target.value = ''; });
+    });
     $('#btnReupload').addEventListener('click', () => $('#fileAny').click());
     $('#btnClearBar').addEventListener('click', () => { STATE.positions = []; savePositions(); afterPositions(); });
 
@@ -113,11 +113,10 @@
       savePositions();
       afterPositions();
     };
-    $('#useDemo').addEventListener('click', demo);
     const d2 = $('#useDemoDash'); if (d2) d2.addEventListener('click', demo);
-    $('#clearPos').addEventListener('click', () => {
-      STATE.positions = []; savePositions(); afterPositions();
-    });
+    // Match 页无持仓时的引导按钮：切回 Dashboard
+    const gd = $('#gotoDash'); if (gd) gd.addEventListener('click', () =>
+      $$('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === 'dash')));
     $('#runMatch').addEventListener('click', runAll);
 
     $('#ocrApply').addEventListener('click', applyOcr);
@@ -129,6 +128,49 @@
   function buildGoalChips() {
     $('#goalChips').innerHTML = GOALS.map((g) => `<span class="chip" data-g="${g}">${g}</span>`).join('');
     $$('#goalChips .chip').forEach((c) => c.addEventListener('click', () => c.classList.toggle('on')));
+    buildProfPrefs();
+  }
+
+  // ---- Profile 页的偏好编辑：与 Match 页表单共享同一份 stated ----
+  // 用户在 Profile 页看不到任何输入入口却被提示「未提供」，所以在这里内联一份；
+  // 改动写回 Match 页控件并自动重算画像与匹配。
+  function buildProfPrefs() {
+    const box = $('#profGoals');
+    if (!box) return;
+    box.innerHTML = GOALS.map((g) => `<span class="chip" data-g="${g}">${g}</span>`).join('');
+    $$('#profGoals .chip').forEach((c) => c.addEventListener('click', () => {
+      c.classList.toggle('on');
+      applyProfPrefs();
+    }));
+    ['profRisk', 'profHorizon', 'profThemes'].forEach((id) => {
+      const el = $('#' + id);
+      if (el) el.addEventListener('change', applyProfPrefs);
+    });
+    syncProfPrefs();
+  }
+
+  function syncProfPrefs() {
+    // Match 页控件 → Profile 页控件（初次渲染 / 持仓载入后回填）
+    if (!$('#profGoals')) return;
+    $$('#profGoals .chip').forEach((c) => {
+      const twin = document.querySelector(`#goalChips .chip[data-g="${c.dataset.g}"]`);
+      c.classList.toggle('on', !!(twin && twin.classList.contains('on')));
+    });
+    $('#profRisk').value = $('#risk').value || '';
+    $('#profHorizon').value = $('#horizon').value;
+    $('#profThemes').value = $('#themes').value || '';
+  }
+
+  function applyProfPrefs() {
+    // Profile 页控件 → Match 页控件 → 重算
+    $$('#goalChips .chip').forEach((c) => {
+      const twin = document.querySelector(`#profGoals .chip[data-g="${c.dataset.g}"]`);
+      c.classList.toggle('on', !!(twin && twin.classList.contains('on')));
+    });
+    $('#risk').value = $('#profRisk').value || '';
+    $('#horizon').value = $('#profHorizon').value;
+    $('#themes').value = $('#profThemes').value || '';
+    if (STATE.positions.length && ENGINE) runAll();
   }
 
   function readStated() {
@@ -380,12 +422,10 @@
       + (STATE.positions[0] && STATE.positions[0].source === 'screenshot' ? '（来自截图识别）' : '');
     $('#posPreview').innerHTML = STATE.positions.map((p) =>
       `<span class="pill">${p.code} ${p.name || ''} ${pct(p.weight, 1)}</span>`).join('');
-    const hint = $('#matchPosHint');
-    if (hint) {
-      hint.textContent = has
-        ? `已沿用 Dashboard 上传的 ${STATE.positions.length} 只持仓，无需重复上传；点「开始匹配」即可。`
-        : '尚未上传持仓。请到 Dashboard 上传截图或文件，也可点下方按钮。';
-    }
+    // Match 页不再提供上传入口：有持仓直接显示，没有则引导回 Dashboard
+    const emptyHint = $('#matchPosEmpty');
+    if (emptyHint) emptyHint.hidden = has;
+    if (has) syncProfPrefs();
     if (has && RET) runAll();
   }
 

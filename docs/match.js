@@ -84,6 +84,8 @@
 
       this.dates = (ret && ret.dates) || snap.dates || [];
       this.RET = (ret && ret.returns) || snap.returns || {};
+      // news.json 可能是数组，也可能包了一层 {"news": [...]}，两种都兼容
+      this.NEWS = Array.isArray(news) ? news : ((news && news.news) || []);
       this.dateIdx = new Map();
       this.dates.forEach((d, i) => this.dateIdx.set(d, i));
 

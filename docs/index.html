@@ -141,20 +141,11 @@
 
     <div class="card">
       <h3>2 · 你的持仓</h3>
-      <p class="tiny" id="matchPosHint">沿用你在 Dashboard 上传的持仓，无需重复上传。</p>
-      <div class="form row">
-        <label class="btn primary">
-          上传持仓截图
-          <input type="file" id="fileShotMatch" accept="image/*" hidden>
-        </label>
-        <label class="btn">
-          或 CSV / Excel
-          <input type="file" id="fileMatch" accept=".csv,.txt,.xlsx,.xls" hidden>
-        </label>
-        <button class="btn" id="useDemo">用内置样例持仓试算</button>
-        <button class="btn" id="clearPos">清空</button>
-      </div>
       <div id="posPreview" class="preview"></div>
+      <p class="tiny" id="matchPosEmpty" hidden>
+        还没有持仓——先到 Dashboard 上传持仓截图（或用内置样例），再回来匹配。
+        <button class="btn tiny" id="gotoDash" type="button">去 Dashboard 上传</button>
+      </p>
     </div>
 
     <div class="card">
@@ -176,6 +167,28 @@
         <div class="bar-outer"><div class="bar-inner" id="cmplBar"></div></div>
         <p id="cmplText" class="tiny"></p>
         <ul id="gaps" class="list warn"></ul>
+        <div class="sub">补充你的偏好，画像与匹配会更准（改完自动重算）</div>
+        <div class="form">
+          <label>投资目标
+            <div class="chips" id="profGoals"></div>
+          </label>
+          <label>风险容忍度
+            <select id="profRisk">
+              <option value="">未选择</option>
+              <option value="保守">保守</option>
+              <option value="稳健">稳健</option>
+              <option value="平衡">平衡</option>
+              <option value="积极">积极</option>
+              <option value="激进">激进</option>
+            </select>
+          </label>
+          <label>投资期限（年）
+            <input type="number" id="profHorizon" value="5" min="0" max="50">
+          </label>
+          <label>关注主题
+            <input type="text" id="profThemes" placeholder="人工智能, 高股息防御, 红利低波">
+          </label>
+        </div>
       </div>
       <div class="grid3">
         <div class="card">
@@ -207,9 +220,9 @@
 </footer>
 
 <div id="loading" class="loading" hidden>加载数据…</div>
-<script src="./terms.js?v=20261027c"></script>
-<script src="./ocr.js?v=20261027c"></script>
-<script src="./match.js?v=20261027c"></script>
-<script src="./app.js?v=20261027c"></script>
+<script src="./terms.js?v=20261027d"></script>
+<script src="./ocr.js?v=20261027d"></script>
+<script src="./match.js?v=20261027d"></script>
+<script src="./app.js?v=20261027d"></script>
 </body>
 </html>
