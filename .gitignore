@@ -1,0 +1,13 @@
+# 本地抓取的数据不入库：由 Actions 每日重新生成
+/data/*
+!/data/sample_portfolio.csv
+/exports/
+__pycache__/
+*.pyc
+.venv/
+venv/
+.DS_Store
+.idea/
+.vscode/
+
+# 注意：docs/data 是 GitHub Pages 站点依赖的快照，必须提交

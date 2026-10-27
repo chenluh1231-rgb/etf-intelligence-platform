@@ -1,0 +1,75 @@
+name: 每日更新 ETF 数据快照
+
+on:
+  schedule:
+    # UTC 02:00 = 北京时间 10:00（A 股收盘后次日上午）
+    - cron: '0 2 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      build_limit:
+        description: 建库取规模前 N 只 ETF
+        default: '800'
+  push:
+    paths:
+      - 'etfi/**'
+      - 'pipeline.py'
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: 安装依赖
+        run: pip install -r requirements.txt
+
+      - name: 恢复上次数据缓存（数据源不可用时可沿用旧快照）
+        uses: actions/cache@v4
+        with:
+          path: data
+          key: etf-data-${{ github.run_id }}
+          restore-keys: |
+            etf-data-
+
+      - name: 建库并生成快照
+        id: build
+        run: |
+          set +e
+          python pipeline.py --build --build-limit ${{ github.event.inputs.build_limit || '800' }}
+          code=$?
+          if [ $code -ne 0 ]; then
+            echo "::warning::数据源不可用（退出码 $code），本次保留上次快照"
+            git checkout -- docs/data 2>/dev/null || true
+          fi
+          exit 0
+
+      - name: 体积检查
+        run: |
+          du -h docs/data/*.json
+          for f in docs/data/*.json; do
+            sz=$(stat -c%s "$f")
+            if [ "$sz" -gt 8000000 ]; then
+              echo "::error::$f 超过 8MB"
+              exit 1
+            fi
+          done
+
+      - name: 提交快照
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/data
+          if git diff --cached --quiet; then
+            echo "快照无变化"
+          else
+            git commit -m "chore(data): 更新 ETF 快照 $(date -u +'%Y-%m-%d %H:%M UTC')"
+            git push
+          fi

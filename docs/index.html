@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ETF Intelligence Platform · 个性化 ETF 投资情报与匹配</title>
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <h1>ETF Intelligence Platform</h1>
+      <p>个性化 ETF 投资情报与匹配 · A 股</p>
+    </div>
+    <div class="meta" id="meta"></div>
+  </div>
+  <nav class="tabs wrap">
+    <button class="tab active" data-tab="dash">Dashboard · 每日情报</button>
+    <button class="tab" data-tab="match">Discover &amp; Match</button>
+    <button class="tab" data-tab="profile">My Investor Profile</button>
+  </nav>
+</header>
+
+<main class="wrap">
+  <!-- ============================ Dashboard ============================ -->
+  <section id="tab-dash" class="panel active">
+    <div id="dashEmpty" class="empty">
+      <h2>先上传你的持仓</h2>
+      <p>这里会展示与你持仓直接相关的每日情报。用下面的模板填写后上传，或直接拖入文件。</p>
+      <div class="empty-actions">
+        <label class="btn primary">
+          选择持仓文件（CSV / Excel）
+          <input type="file" id="fileDash" accept=".csv,.txt,.xlsx,.xls" hidden>
+        </label>
+        <a class="btn" href="https://github.com" onclick="return false;" id="tplLink">或用桌面上的模板填写</a>
+      </div>
+      <p class="tiny">所有计算在你的浏览器本地完成，持仓文件不会上传到任何服务器。</p>
+    </div>
+
+    <div id="dashBody" hidden>
+      <div class="card headline">
+        <div class="card-tag">今日头条</div>
+        <p id="headline"></p>
+        <ul id="signals" class="signals"></ul>
+      </div>
+
+      <div class="grid2">
+        <div class="card">
+          <h3>Portfolio Pulse · 组合脉搏</h3>
+          <div id="pulse" class="kv"></div>
+          <table class="tbl" id="pulseTbl"></table>
+        </div>
+        <div class="card">
+          <h3>Risk Radar · 风险雷达</h3>
+          <div id="risk" class="kv"></div>
+          <div class="sub">底层重叠最高的持仓对</div>
+          <ul id="overlapList" class="list"></ul>
+          <div class="sub">穿透后的行业暴露</div>
+          <div id="sectorBar" class="bars"></div>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="card">
+          <h3>What Matters to You · 相关事件</h3>
+          <ul id="matters" class="list"></ul>
+        </div>
+        <div class="card">
+          <h3>ETF Radar · 每日产品发现</h3>
+          <div class="sub">各层级最低费率产品</div>
+          <table class="tbl" id="lowFee"></table>
+          <div class="sub">新上市（交易日不足 120 天）</div>
+          <ul id="newEtf" class="list"></ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== Match ============================== -->
+  <section id="tab-match" class="panel">
+    <div class="card">
+      <h3>1 · 你的偏好（Stated Preference）</h3>
+      <div class="form">
+        <label>投资目标
+          <div class="chips" id="goalChips"></div>
+        </label>
+        <label>风险容忍度
+          <select id="risk">
+            <option value="">未选择</option>
+            <option value="保守">保守</option>
+            <option value="稳健">稳健</option>
+            <option value="平衡" selected>平衡</option>
+            <option value="积极">积极</option>
+            <option value="激进">激进</option>
+          </select>
+        </label>
+        <label>投资期限（年）
+          <input type="number" id="horizon" value="5" min="0" max="50">
+        </label>
+        <label>关注主题
+          <input type="text" id="themes" placeholder="人工智能, 高股息防御, 红利低波">
+        </label>
+      </div>
+      <p class="tiny">不填也能跑：系统会只用你的实际持仓反推画像，并在结果中标注「未提供投资目标」。</p>
+    </div>
+
+    <div class="card">
+      <h3>2 · 你的持仓</h3>
+      <div class="form row">
+        <label class="btn primary">
+          选择文件（CSV / Excel）
+          <input type="file" id="fileMatch" accept=".csv,.txt,.xlsx,.xls" hidden>
+        </label>
+        <button class="btn" id="useDemo">用内置样例持仓试算</button>
+        <button class="btn" id="clearPos">清空</button>
+      </div>
+      <div id="posPreview" class="preview"></div>
+    </div>
+
+    <div class="card">
+      <h3>3 · 匹配结果</h3>
+      <div class="form row">
+        <button class="btn primary big" id="runMatch">开始匹配</button>
+        <span id="matchStat" class="tiny"></span>
+      </div>
+      <div id="matchOut"></div>
+    </div>
+  </section>
+
+  <!-- ============================= Profile ============================= -->
+  <section id="tab-profile" class="panel">
+    <div id="profEmpty" class="empty"><p>上传持仓后这里会显示你的投资者画像。</p></div>
+    <div id="profBody" hidden>
+      <div class="card">
+        <h3>画像完整度</h3>
+        <div class="bar-outer"><div class="bar-inner" id="cmplBar"></div></div>
+        <p id="cmplText" class="tiny"></p>
+        <ul id="gaps" class="list warn"></ul>
+      </div>
+      <div class="grid3">
+        <div class="card">
+          <h3>Stated · 你明确表达的</h3>
+          <div id="stated" class="kv"></div>
+        </div>
+        <div class="card">
+          <h3>Revealed · 持仓反推的</h3>
+          <div id="revealed" class="kv"></div>
+          <div class="sub">资产配置</div>
+          <div id="assetBar" class="bars"></div>
+          <div class="sub">穿透后前十大个股</div>
+          <ul id="topStocks" class="list"></ul>
+        </div>
+        <div class="card">
+          <h3>Behavioral · 可观测行为</h3>
+          <div id="behavioral" class="kv"></div>
+          <div class="sub">显式表达与实际持仓的差异</div>
+          <ul id="diverge" class="list warn"></ul>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap foot">
+  <p>数据来源：东方财富（天天基金）。匹配分数为特征适配度，不是未来收益概率。本项目仅供研究，不构成投资建议。</p>
+  <p class="tiny">持仓穿透基于季报/年报披露持仓（通常前十大重仓），覆盖率约 20%–60%，所有指标均标注口径。</p>
+</footer>
+
+<div id="loading" class="loading" hidden>加载数据…</div>
+<script src="./match.js"></script>
+<script src="./app.js"></script>
+</body>
+</html>
