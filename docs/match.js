@@ -662,7 +662,7 @@
 
       const signals = [];
       for (const m of movers.slice(0, 3)) {
-        if (Math.abs(m.pct) >= 1.5) signals.push(`${m.name} 当日 ${m.pct > 0 ? '+' : ''}${m.pct.toFixed(2)}%`);
+        if (Math.abs(m.pct) >= 1.5) signals.push(moverPhrase(m, wsum));
       }
       for (const p of (profile.revealed.overlap_pairs || []).slice(0, 1)) {
         if (p.overlap >= 0.5) signals.push(`${p.a_name} × ${p.b_name} 底层重叠 ${(p.overlap * 100).toFixed(0)}%，存在重复暴露`);
@@ -744,6 +744,17 @@
     if (!pairs.length || tot <= 0) return null;
     return round(pairs.reduce((a, [w, v]) => a + w * v, 0) / tot, 4);
   }
+  /* 单只 ETF 的头条措辞：只报涨跌幅会让头条变成行情播报，
+     必须带上它对组合的贡献，让它成为归因而非提示。
+     权重缺失导致贡献趋近 0 时无法归因，如实退回涨跌幅表述。 */
+  function moverPhrase(m, wsum) {
+    const sign = m.pct > 0 ? '+' : '';
+    const c = wsum > 0 ? (Number(m.weight) || 0) * m.pct / wsum : null;
+    if (c == null || Math.abs(c) < 0.005) return `${m.name} 当日 ${sign}${m.pct.toFixed(2)}%`;
+    const verb = c > 0 ? '拉动' : '拖累';
+    return `${m.name} 当日 ${sign}${m.pct.toFixed(2)}%，${verb}组合 ${Math.abs(c).toFixed(2)} 个百分点`;
+  }
+
   function concentration(weights) {
     const ws = weights.filter((w) => w > 0).sort((a, b) => b - a);
     if (!ws.length) return { hhi: null, top1: null, top3: null, top5: null, effective_n: null };

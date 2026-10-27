@@ -167,3 +167,73 @@ input[type=text], input[type=number], select {
 .tagk.tag-f { background: #fdecea; color: #c62828; }   /* 快讯 */
 .tagk.tag-a { background: #eaf1f8; color: var(--accent); } /* 文章 */
 .tagk.tag-r { background: #f3e8fd; color: #6b21a8; }   /* 研报 */
+
+/* ---------- 全局持仓条：一次上传，三个页面共用 ---------- */
+.posbar {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  background: var(--accent-soft); border-top: 1px solid var(--line);
+  padding: 8px 20px; font-size: 12.5px; color: var(--accent);
+}
+.posbar-t { font-weight: 500; }
+.posbar-a { margin-left: auto; display: flex; gap: 8px; }
+.btn.tiny { padding: 3px 10px; font-size: 12px; }
+
+/* ---------- 截图上传说明 ---------- */
+.shothelp { margin: 14px auto 0; max-width: 620px; text-align: left; font-size: 12.5px; color: var(--muted); }
+.shothelp summary { cursor: pointer; color: var(--accent); }
+.shothelp ul { margin: 8px 0 0; padding-left: 20px; line-height: 1.75; }
+
+/* ---------- 专业名词悬浮注释 ---------- */
+.tipwrap { position: relative; display: inline-block; }
+.ti {
+  display: inline-block; width: 13px; height: 13px; line-height: 13px;
+  margin-left: 3px; vertical-align: super;
+  border-radius: 50%; background: #eef1f5; color: var(--muted);
+  font-size: 9px; font-style: normal; text-align: center; cursor: help;
+  font-family: -apple-system, "Helvetica Neue", sans-serif;
+}
+.tipwrap:hover .ti, .tipwrap:focus-within .ti { background: var(--accent); color: #fff; }
+.tipb {
+  display: none; position: absolute; left: -6px; top: calc(100% + 6px);
+  width: 320px; max-width: calc(100vw - 60px); z-index: 60;
+  background: #fff; color: var(--text);
+  border: 1px solid var(--line); border-radius: 8px;
+  padding: 11px 13px; font-size: 12.5px; line-height: 1.65;
+  box-shadow: 0 6px 20px rgba(28, 32, 36, .12);
+  text-align: left; font-weight: 400; white-space: normal;
+  vertical-align: baseline;
+}
+.tipwrap:hover .tipb, .tipwrap:focus-within .tipb { display: block; }
+.tipb b { display: block; font-size: 13px; margin-bottom: 5px; color: var(--accent); }
+.tipb p { margin: 0 0 6px; }
+.tipb p:last-child { margin-bottom: 0; }
+.tipb .tf {
+  background: #f7f9fb; border-left: 2px solid var(--accent);
+  padding: 5px 8px; border-radius: 0 4px 4px 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px; white-space: pre-wrap;
+}
+.tipb .tl { color: var(--muted); font-size: 12px; }
+/* 靠右侧的容器里气泡改为向左展开，避免溢出屏幕 */
+.dims .tipwrap .tipb, .metrics .tipwrap .tipb, .mhead .tipwrap .tipb { left: auto; right: -6px; }
+
+/* ---------- 截图识别校正面板 ---------- */
+.ocrwrap { overflow-x: auto; margin: 10px 0 4px; }
+.ocrwrap .tbl input {
+  border: 1px solid var(--line); border-radius: 5px; padding: 4px 6px;
+  font-size: 12.5px; font-family: inherit; width: 100%; min-width: 60px;
+}
+.ocrwrap .tbl tr.lowconf { background: #fffaf0; }
+.ocrwrap .cand { margin-top: 4px; display: flex; gap: 5px; flex-wrap: wrap; }
+.ocrwrap .candb { white-space: nowrap; }
+
+/* ---------- What Matters to You：单列表的类型标签 ---------- */
+.feedk {
+  display: inline-block; margin-right: 7px; padding: 1px 7px;
+  border-radius: 4px; font-size: 11.5px; font-weight: 500; vertical-align: 1px;
+}
+.feedk-m { color: #b23a2e; background: #fdeceb; border: 1px solid #f6d6d2; }
+.feedk-f { color: #17559c; background: #eaf1fb; border: 1px solid #d3e0f4; }
+.feedk-r { color: #6a3fa0; background: #f2ecfa; border: 1px solid #e0d5f2; }
+.feedk-a { color: #0f6b5c; background: #e8f5f1; border: 1px solid #cfe8e0; }
+/* 元素设了 display 后 [hidden] 会失效，必须显式兜底 */
+.posbar[hidden], .empty[hidden], .card[hidden], .panel[hidden] { display: none !important; }

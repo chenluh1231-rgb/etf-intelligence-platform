@@ -80,7 +80,7 @@ def generate_brief(user_id: str, stated: dict | None = None,
         signals.append(f"组合当日变动 {pulse['portfolio_pct']:+.2f}%")
     for m in pulse.get("movers", [])[:3]:
         if abs(m["pct"]) >= SIGNIFICANT_PCT:
-            signals.append(f"{m['name']} 当日 {m['pct']:+.2f}%")
+            signals.append(_mover_phrase(m))
     if risk.get("vol_changed"):
         signals.append("组合波动率出现明显变化")
     if changes.get("entered"):
@@ -135,6 +135,20 @@ def _portfolio_pulse(positions, kmap, masters) -> dict:
             "holdings": rows,
             "movers": [r for r in rows if r["pct"] is not None][:5],
             "note": "组合当日变动按持仓权重加权估算，数值取自最新已披露净值交易日"}
+
+
+def _mover_phrase(m: dict) -> str:
+    """单只 ETF 的头条措辞。
+
+    只报涨跌幅会让头条退化成行情播报（组合平静的日子尤其明显），
+    因此必须带上它对组合的贡献，使这条成为归因而非提示。
+    权重缺失导致贡献为 0 时无法归因，如实退回涨跌幅表述。
+    """
+    c = m.get("contribution")
+    if c is None or abs(c) < 0.005:
+        return f"{m['name']} 当日 {m['pct']:+.2f}%"
+    verb = "拉动" if c > 0 else "拖累"
+    return f"{m['name']} 当日 {m['pct']:+.2f}%，{verb}组合 {abs(c):.2f} 个百分点"
 
 
 # ------------------------------------------------------------- 模块 2 ----

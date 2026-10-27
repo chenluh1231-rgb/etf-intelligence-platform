@@ -188,6 +188,22 @@ async def upload(file: UploadFile = File(...), user_id: str = Form("demo")):
     return {"ok": True, "count": len(rows), "positions": rows}
 
 
+class PositionsIn(BaseModel):
+    """截图识别等前端结构化后的持仓，直接落库（无需再走文件解析）。"""
+    user_id: str = "demo"
+    positions: list[dict]
+
+
+@app.post("/api/positions")
+def save_positions_json(body: PositionsIn):
+    rows = [p for p in body.positions
+            if len(re.sub(r"\D", "", str(p.get("code") or ""))) == 6]
+    if not rows:
+        raise HTTPException(400, "没有有效的 6 位基金代码")
+    store.save_positions(body.user_id, rows)
+    return {"ok": True, "count": len(rows), "positions": rows}
+
+
 @app.get("/api/positions/{user_id}")
 def get_positions(user_id: str):
     return {"positions": store.load_positions(user_id)}
