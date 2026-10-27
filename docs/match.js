@@ -15,6 +15,12 @@
   const SHORTLIST_SIZE = 100;
   const RET_SCALE = 10000;   // 存储整数 → 小数收益：arr[i] / RET_SCALE
 
+  // 新闻相关性参数，必须与 etfi/news.py 保持一致
+  const NEWS_W = { stock: 0.50, sector: 0.30, theme: 0.20 };
+  const NEWS_STOCK_FULL_HIT = 0.03;   // 命中成分股合计权重达 3% 即视为强直连
+  const NEWS_SECTOR_FULL_HIT = 0.15;  // 命中行业暴露达 15% 即视为强暴露
+  const NEWS_DECAY_HOURS = 72;        // 72 小时内线性衰减到 0.5
+
   // ------------------------------------------------------------ 工具函数 --
   const clip = (x) => {
     const v = Number(x);
@@ -66,7 +72,7 @@
 
   // ------------------------------------------------------------ 引擎主体 --
   class Engine {
-    constructor(snap, ret) {
+    constructor(snap, ret, news) {
       this.snap = snap;
       this.D = snap.dict;
       this.cfg = snap.config || {};
@@ -95,6 +101,8 @@
       this.holdings = snap.holdings || {};
       this.stocks = snap.stocks || {};
       this.latest = snap.latest || {};
+      // 新闻是可选数据：缺失时简报里的资讯栏会如实标注，不影响其它模块
+      this.NEWS = (news && news.news) || snap.news || [];
     }
 
     // ---- 收益序列 ----
@@ -513,6 +521,123 @@
       return r;
     }
 
+    // ============================================================ 资讯 ====
+    /* 与 etfi/news.py 的 relevance()/select_for() 一一对应。
+     * 标签（个股/行业/主题）已在服务端打好，这里只做集合运算——
+     * 因此持仓数据始终留在浏览器里，不上传任何服务器。
+     *
+     * 相关度 = 成分股直连 50% + 行业暴露 30% + 关注主题 20%，再按时间衰减。
+     * 得分为 0 的条目直接丢弃，绝不凑数。 */
+    newsContext(positions, stockW, profile, stated) {
+      const secW = {};
+      for (const s of ((profile && profile.revealed && profile.revealed.sector_exposure) || [])) {
+        if (s && s.sector) secW[s.sector] = Number(s.weight || 0);
+      }
+      const codeNames = {};
+      const names = [];
+      for (const p of positions) {
+        const m = this.byCode.get(p.code);
+        const nm = (m && (m.name || m.index_name)) || p.name || p.code;
+        codeNames[p.code] = nm;
+        names.push(nm);
+        if (m && m.index_name) names.push(m.index_name);
+      }
+      // 指数名过长会误命中（如「中证全指证券公司指数」），只留 3–8 字的有效词
+      const uniq = names.filter((n) => n && n.length >= 3 && n.length <= 8);
+      return {
+        stockW: stockW || {},
+        secW,
+        themes: (stated && stated.focus_themes) || [],
+        names: Array.from(new Set(uniq)),
+        codeNames,
+        stockNames: this.stocks || {},
+      };
+    }
+
+    newsRelevance(item, ctx) {
+      const [id, kind, title, summary, time, url, source, stocks, sectors, themes] = item;
+      const etf = (stocks || []).filter((c) => ctx.codeNames[c]);
+      const hitStocks = (stocks || []).filter((c) => ctx.stockW[c] && !ctx.codeNames[c]);
+      const hitW = hitStocks.reduce((a, c) => a + (ctx.stockW[c] || 0), 0);
+      const sStock = etf.length ? 1
+        : (hitW ? Math.min(1, hitW / NEWS_STOCK_FULL_HIT) : 0);
+
+      const hitSecs = (sectors || []).filter((s) => ctx.secW[s]);
+      const secW = hitSecs.reduce((a, s) => a + (ctx.secW[s] || 0), 0);
+      const sSector = secW ? Math.min(1, secW / NEWS_SECTOR_FULL_HIT) : 0;
+
+      const thSet = new Set(ctx.themes || []);
+      const hitThs = (themes || []).filter((t) => thSet.has(t));
+      const sTheme = hitThs.length ? Math.min(1, hitThs.length / 2) : 0;
+
+      const nameHits = (ctx.names || []).filter((n) => title && title.indexOf(n) >= 0);
+      const sName = nameHits.length ? Math.min(1, nameHits.length / 2) : 0;
+
+      let base = NEWS_W.stock * sStock + NEWS_W.sector * sSector + NEWS_W.theme * sTheme;
+      if (sName) base = Math.min(1, base + 0.35 * sName);
+      if (base <= 0) return null;
+
+      const reasons = [];
+      if (etf.length) {
+        reasons.push('直接点名你持有的 ' + etf.slice(0, 2)
+          .map((c) => ctx.codeNames[c] || c).join('、'));
+      }
+      if (hitStocks.length) {
+        const top = hitStocks.sort((a, b) => (ctx.stockW[b] || 0) - (ctx.stockW[a] || 0)).slice(0, 3);
+        reasons.push('关联你的持仓成分股 ' + top.map((c) => {
+          // 快照里 stocks[code] = [名称, 行业索引]，取第 0 项才是名称
+          const raw = (ctx.stockNames || {})[c];
+          const n = Array.isArray(raw) ? raw[0] : raw;
+          return (n && String(n).length >= 2 && String(n).indexOf('*') < 0) ? n : c;
+        }).join('、'));
+      }
+      if (hitSecs.length) reasons.push('命中组合行业暴露 ' + hitSecs.slice(0, 2).join('、'));
+      if (hitThs.length) reasons.push('命中你的关注主题 ' + hitThs.slice(0, 2).join('、'));
+      if (nameHits.length) reasons.push('提及你持有的 ' + nameHits.slice(0, 2).join('、'));
+
+      return {
+        score: round(100 * base * this._newsDecay(time), 1),
+        reasons, etf, hitStocks, hitSecs, hitThs, nameHits,
+      };
+    }
+
+    _newsDecay(t) {
+      // 快讯时间形如 "10-27 11:23"（服务端已截掉年份），只按天/时粗算新鲜度
+      const m = /^(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/.exec(t || '');
+      if (!m) return 0.8;
+      const now = new Date();
+      const dt = new Date(now.getFullYear(), Number(m[1]) - 1, Number(m[2]),
+                          Number(m[3]), Number(m[4]));
+      let ageH = (now - dt) / 36e5;
+      if (ageH < 0) ageH += 8760;   // 跨年时回滚，按一年前的旧消息处理
+      if (ageH < 0 || ageH > 8760) ageH = 0;
+      return Math.max(0.5, 1 - 0.5 * Math.min(1, ageH / NEWS_DECAY_HOURS));
+    }
+
+    newsFor(ctx, limitFast = 10, limitArticle = 8) {
+      const kindName = ['快讯', '文章', '研报'];
+      const scored = [];
+      for (const it of this.NEWS) {
+        const rel = this.newsRelevance(it, ctx);
+        if (!rel) continue;
+        scored.push({
+          id: it[0], kind: kindName[it[1]] || '文章', title: it[2], summary: it[3],
+          time: it[4], url: it[5], source: it[6], score: rel.score, reasons: rel.reasons,
+        });
+      }
+      // 稳定排序：先按时间倒序，再按相关度倒序
+      scored.sort((a, b) => (a.time < b.time ? 1 : a.time > b.time ? -1 : 0));
+      scored.sort((a, b) => b.score - a.score);
+      return {
+        fast: scored.filter((x) => x.kind === '快讯').slice(0, limitFast),
+        articles: scored.filter((x) => x.kind !== '快讯').slice(0, limitArticle),
+        n_scanned: this.NEWS.length,
+        n_related: scored.length,
+        note: '相关度 = 成分股直连 50% + 行业暴露 30% + 关注主题 20%，再按时间新鲜度衰减',
+        empty_hint: '未找到与你当前持仓或关注主题直接相关的资讯。补充关注主题可提高命中率。',
+      };
+    }
+
     // ============================================================ 简报 ====
     brief(positions, stated) {
       const profile = this.buildProfile(positions, stated || {});
@@ -559,6 +684,20 @@
         .sort((a, b) => a.list_days - b.list_days).slice(0, 5)
         .map((e) => ({ code: e.code, name: e.name, list_days: e.list_days }));
 
+      // 相关快讯与文章：只推与持仓/主题有关的，不做市场综述
+      let newsBlock = { ok: false, fast: [], articles: [], n_scanned: 0, n_related: 0,
+                        note: '资讯数据未加载' };
+      if (this.NEWS && this.NEWS.length) {
+        const ctx = this.newsContext(positions, port.stock_w, profile, stated);
+        newsBlock = this.newsFor(ctx);
+        newsBlock.ok = true;
+        newsBlock.has_positions = positions.length > 0;
+        newsBlock.coverage = port.summary.penetration_coverage;
+        if (!positions.length) {
+          newsBlock.note += '；未上传持仓，仅按关注主题匹配';
+        }
+      }
+
       return {
         trade_date: meta.trade_date, generated_at: meta.generated_at,
         has_signal: signals.length > 0,
@@ -580,6 +719,7 @@
         what_matters: {
           etf_moves: movers,
           theme_focus: (stated && stated.focus_themes) || [],
+          news: newsBlock,
         },
         etf_radar: {
           new_products: newest,

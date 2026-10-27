@@ -10,6 +10,7 @@ import math
 from datetime import date, datetime
 
 from . import datasource as ds
+from . import news as news_mod
 from . import store
 from .config import ALGO_VERSION
 from .matching import run_matching
@@ -56,7 +57,11 @@ def generate_brief(user_id: str, stated: dict | None = None,
     # ---------------- 1. Portfolio Pulse ----------------
     pulse = _portfolio_pulse(positions, kmap, masters)
     # ---------------- 2. What Matters to You ----------------
-    matters = _what_matters(positions, masters, kmap, stated, profile)
+    # 穿透结果在风险雷达里也要用，这里算一次复用（ensure_holdings 有 30 天缓存）
+    _h = ensure_holdings(codes)
+    hmap = {c: v["rows"] for c, v in _h.items()}
+    matters = _what_matters(positions, masters, kmap, stated, profile,
+                            hmap_for_news=hmap)
     # ---------------- 3. Risk Radar ----------------
     risk = _risk_radar(positions, masters, kmap, prev_feat, profile)
     # ---------------- 4. ETF Radar ----------------
@@ -133,8 +138,9 @@ def _portfolio_pulse(positions, kmap, masters) -> dict:
 
 
 # ------------------------------------------------------------- 模块 2 ----
-def _what_matters(positions, masters, kmap, stated, profile) -> dict:
-    out = {"etf_moves": [], "theme_watch": [], "notes": []}
+def _what_matters(positions, masters, kmap, stated, profile,
+                  hmap_for_news: dict | None = None) -> dict:
+    out = {"etf_moves": [], "theme_watch": [], "notes": [], "news": {}}
     for p in positions:
         k = kmap.get(p["code"]) or []
         if len(k) < 2:
@@ -154,6 +160,10 @@ def _what_matters(positions, masters, kmap, stated, profile) -> dict:
     if not focus:
         tag_exp = (profile.get("revealed") or {}).get("tag_exposure") or {}
         focus = [k for k, _ in sorted(tag_exp.items(), key=lambda x: -x[1])[:3]]
+
+    # ---- 相关快讯与文章：只推与持仓/主题有关的，不做市场综述 ----
+    out["news"] = _related_news(positions, masters, profile, focus, hmap_for_news)
+
     if focus:
         allm = store.load_etf_master()
         hit = [m for m in allm if set(m.get("tags") or []) & set(focus)]
@@ -164,6 +174,52 @@ def _what_matters(positions, masters, kmap, stated, profile) -> dict:
                               for m in hit[:8]]
         out["theme_focus"] = focus
     return out
+
+
+def _related_news(positions, masters, profile, focus, hmap) -> dict:
+    """挑出与当前持仓、关注主题和底层成分股相关的快讯与文章。
+
+    没有持仓时无法判断相关性，只按关注主题筛选并如实标注；
+    数据源不可用时返回状态说明，不伪造内容。
+    """
+    codes = [p["code"] for p in positions if p.get("code")]
+    try:
+        stat = news_mod.refresh_news()
+    except Exception as e:                       # 新闻是增值项，不能拖垮整份简报
+        return {"ok": False, "fast": [], "articles": [],
+                "note": f"资讯源暂不可用（{type(e).__name__}）"}
+
+    hmap = hmap or {}
+    psw = portfolio_stock_weights(positions, hmap) if (positions and hmap) else {}
+    revealed = profile.get("revealed") or {}
+    sector_exp = revealed.get("sector_exposure") or []
+    code_names = {c: (masters.get(c) or {}).get("name") or c for c in codes}
+    etf_names = [n for n in code_names.values()]
+    for m in masters.values():
+        if m.get("index_name"):
+            etf_names.append(m["index_name"])
+    # 指数名过长会误命中，只保留 3–8 字的有效词
+    etf_names = [n for n in dict.fromkeys(etf_names) if 3 <= len(n) <= 8]
+
+    # 成分股代码 → 名称：理由文案要给公司名，只报 6 位代码没有意义
+    stock_names = {}
+    for _rows in hmap.values():
+        for r in _rows:
+            c, nm = r.get("stock_code"), r.get("stock_name")
+            if c and nm:
+                stock_names[c] = nm
+
+    ctx = news_mod.build_context(positions, psw, sector_exp, focus,
+                                 etf_names, code_names, stock_names)
+    sel = news_mod.select_for(ctx)
+    sel["ok"] = True
+    sel["source_stat"] = stat
+    sel["coverage"] = round(sum(psw.values()), 4) if psw else None
+    sel["has_positions"] = bool(positions)
+    if not positions:
+        sel["note"] = (sel["note"] + "；未上传持仓，仅按关注主题匹配，"
+                       "无法判断与底层成分股的关系")
+    return sel
 
 
 # ------------------------------------------------------------- 模块 3 ----

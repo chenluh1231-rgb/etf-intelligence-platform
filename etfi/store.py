@@ -115,6 +115,23 @@ CREATE TABLE IF NOT EXISTS daily_briefs (
   created_at TEXT,
   UNIQUE (user_id, trade_date)
 );
+-- 新闻/快讯/研报缓存（方案 §7.2 What Matters to You）
+-- 只存标题、摘要与结构化标签，不存正文；原文一律链回来源站点。
+CREATE TABLE IF NOT EXISTS news_items (
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL,          -- 快讯 / 文章 / 研报
+  title TEXT NOT NULL,
+  summary TEXT,
+  time TEXT,
+  url TEXT,
+  source TEXT,
+  stocks TEXT,                 -- JSON 数组：关联个股 6 位代码
+  sectors TEXT,                -- JSON 数组：命中的行业标签
+  themes TEXT,                 -- JSON 数组：命中的主题标签
+  fetched_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_news_time ON news_items(time);
+CREATE INDEX IF NOT EXISTS idx_news_kind ON news_items(kind);
 CREATE INDEX IF NOT EXISTS idx_pos_user ON investor_positions(user_id);
 CREATE INDEX IF NOT EXISTS idx_match_user ON matching_results(user_id, trade_date);
 """
@@ -339,6 +356,47 @@ def load_brief(user_id: str, trade_date: str) -> dict | None:
         return json.loads(r[0])
     except Exception:
         return None
+
+
+def save_news(items: list[dict]):
+    """新闻按 id 去重入库。只保留最近 N 条，避免无限膨胀。"""
+    if not items:
+        return
+    c = conn()
+    c.executemany(
+        "INSERT OR REPLACE INTO news_items(id,kind,title,summary,time,url,source,"
+        "stocks,sectors,themes,fetched_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+        [(r["id"], r["kind"], r["title"], r.get("summary") or "", r.get("time") or "",
+          r.get("url") or "", r.get("source") or "",
+          json.dumps(r.get("stocks") or [], ensure_ascii=False),
+          json.dumps(r.get("sectors") or [], ensure_ascii=False),
+          json.dumps(r.get("themes") or [], ensure_ascii=False),
+          r.get("fetched_at") or now()) for r in items])
+    c.execute("DELETE FROM news_items WHERE id NOT IN "
+              "(SELECT id FROM news_items ORDER BY time DESC LIMIT 1200)")
+    c.commit()
+    c.close()
+
+
+def load_news(limit: int = 600) -> list[dict]:
+    c = conn()
+    rows = c.execute("SELECT * FROM news_items ORDER BY time DESC LIMIT ?",
+                     (limit,)).fetchall()
+    c.close()
+    out = []
+    for r in rows:
+        try:
+            out.append({
+                "id": r["id"], "kind": r["kind"], "title": r["title"],
+                "summary": r["summary"], "time": r["time"], "url": r["url"],
+                "source": r["source"],
+                "stocks": json.loads(r["stocks"] or "[]"),
+                "sectors": json.loads(r["sectors"] or "[]"),
+                "themes": json.loads(r["themes"] or "[]"),
+            })
+        except Exception:
+            continue
+    return out
 
 
 def save_features_daily(rows: list[dict]):

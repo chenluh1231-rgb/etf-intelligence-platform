@@ -110,6 +110,8 @@ function renderBrief(b) {
     (wm.theme_watch || []).slice(0, 6).map(m => `<tr><td>${m.name}</td>
       <td class="num">${num(m.scale_yi, 0)}</td><td class="num">${num(m.fee)}</td></tr>`).join('') + `</table>`;
 
+  renderNews(wm.news);
+
   const rd = b.etf_radar || {};
   $('#radar').innerHTML =
     `<h4 style="font-size:13px;margin:0 0 4px">与你的关注相关的新产品</h4>` +
@@ -234,6 +236,38 @@ function renderProfile(p) {
     ? (p.divergence || []).map(d => `<div class="dim"><span class="k">${d.type}</span>
         <span>${d.detail}</span></div>`).join('')
     : '<p class="hint">未发现显式偏好与持仓结构的明显差异。</p>';
+}
+
+function renderNews(n) {
+  const box = $('#newsBox');
+  if (!box) return;
+  if (!n || !n.ok) {
+    box.innerHTML = `<p class="hint">${(n && n.note) || '资讯暂不可用'}</p>`;
+    return;
+  }
+  const item = (x) => `
+    <li class="news-item">
+      <a class="news-t" href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a>
+      <div class="news-m">
+        <span class="tagk tag-${x.kind === '快讯' ? 'f' : x.kind === '研报' ? 'r' : 'a'}">${x.kind}</span>
+        <span class="hint">${esc(x.time)}</span>
+        ${x.source ? `<span class="hint">· ${esc(x.source)}</span>` : ''}
+        <span class="nscore">相关度 ${num(x.score, 1)}</span>
+      </div>
+      ${x.summary ? `<p class="news-s">${esc(x.summary)}</p>` : ''}
+      <div class="news-why">${(x.reasons || []).map(r => `<span class="why">${esc(r)}</span>`).join('')}</div>
+    </li>`;
+  const sec = (t, l) => l && l.length
+    ? `<h4 class="news-h">${t}</h4><ul class="news-ul">${l.map(item).join('')}</ul>` : '';
+  const empty = (!n.fast.length && !n.articles.length)
+    ? `<p class="hint">${esc(n.empty_hint || '暂无相关资讯')}</p>` : '';
+  box.innerHTML = `<p class="hint">扫描 ${n.n_scanned} 条 · 与你相关 <b>${n.n_related}</b> 条 · ${esc(n.note || '')}</p>`
+    + sec('相关快讯', n.fast) + sec('相关文章与研报', n.articles) + empty;
+}
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g,
+    c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
 loadStats();

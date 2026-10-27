@@ -7,7 +7,7 @@
   const $$ = (s) => Array.from(document.querySelectorAll(s));
   const BASE = (location.pathname.replace(/[^/]*$/, '') || './');
 
-  let SNAP = null, RET = null, ENGINE = null;
+  let SNAP = null, RET = null, NEWS = null, ENGINE = null;
   const STATE = { positions: [], stated: {}, brief: null, match: null };
 
   const GOALS = ['长期增值', '稳定收入', '分散风险', '海外配置', '主题机会'];
@@ -40,6 +40,12 @@
       $('#loading').hidden = true;
       if (STATE.positions.length) runAll();
     }).catch(() => { $('#loading').hidden = true; });
+    // 资讯单独一份，异步加载；加载失败也不影响其它模块
+    fetchJSON(BASE + 'data/news.json').then((r) => {
+      NEWS = r;
+      ENGINE = new ETFEngine.Engine(SNAP, RET, NEWS);
+      if (STATE.positions.length) runAll();
+    }).catch(() => {});
     setTimeout(() => { $('#loading').hidden = true; }, 2500);
   }
 
@@ -264,6 +270,8 @@
          <span class="tiny">权重 ${pct(m.weight)}</span></li>`).join('')
       : '<li class="tiny">当日无显著异动</li>';
 
+    renderNews(b.what_matters.news);
+
     $('#lowFee').innerHTML = tableHTML(['层级', 'ETF', '管理费率', '规模(亿)'],
       (b.etf_radar.low_fee_picks || []).slice(0, 6).map((x) =>
         [x.layer, `${x.name} <span class="tiny">${x.code}</span>`, num(x.fee) + '%', num(x.scale_yi, 0)]));
@@ -271,6 +279,41 @@
       ? b.etf_radar.new_products.map((x) =>
         `<li>${x.name} <span class="tiny">${x.code} · 上市约 ${x.list_days} 个交易日</span></li>`).join('')
       : '<li class="tiny">近期无新上市 ETF</li>';
+  }
+
+  // ------------------------------------------------------------ 资讯 ----
+  function renderNews(n) {
+    const box = $('#newsBox');
+    if (!box) return;
+    if (!n || !n.ok) {
+      box.innerHTML = `<p class="tiny">${(n && n.note) || '资讯正在加载…'}</p>`;
+      return;
+    }
+    const stat = `扫描 <b>${n.n_scanned}</b> 条 · 与你相关 <b>${n.n_related}</b> 条`;
+    const item = (x) => `
+      <li class="news-item">
+        <a class="news-t" href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a>
+        <div class="news-m">
+          <span class="tagk tag-${x.kind === '快讯' ? 'f' : x.kind === '研报' ? 'r' : 'a'}">${x.kind}</span>
+          <span class="tiny">${esc(x.time)}</span>
+          ${x.source ? `<span class="tiny">· ${esc(x.source)}</span>` : ''}
+          <span class="score">相关度 ${num(x.score, 1)}</span>
+        </div>
+        ${x.summary ? `<p class="news-s">${esc(x.summary)}</p>` : ''}
+        <div class="news-why">${(x.reasons || []).map((r) => `<span class="why">${esc(r)}</span>`).join('')}</div>
+      </li>`;
+    const sec = (title, list) => list && list.length
+      ? `<h4 class="news-h">${title}</h4><ul class="news-ul">${list.map(item).join('')}</ul>`
+      : '';
+    const empty = (!n.fast.length && !n.articles.length)
+      ? `<p class="tiny">${esc(n.empty_hint || '暂无相关资讯')}</p>` : '';
+    box.innerHTML = `<p class="tiny">${stat} · ${esc(n.note || '')}</p>`
+      + sec('相关快讯', n.fast) + sec('相关文章与研报', n.articles) + empty;
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g,
+      (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
   // --------------------------------------------------------------- Match --

@@ -127,6 +127,9 @@ def build_snapshot(limit: int = 0) -> dict:
             m.get("_coverage"), m.get("_report_date") or "",
         ])
 
+    # 新闻单独成文件：更新频率比 ETF 特征高得多，拆开便于增量更新
+    news_out = _pack_news()
+
     snap = {
         "meta": {
             "generated_at": date.today().isoformat(),
@@ -137,6 +140,7 @@ def build_snapshot(limit: int = 0) -> dict:
             "ret_days": RET_DAYS,
             "ret_scale": RET_SCALE,
             "holding_scope": "季报/年报披露持仓（通常前十大重仓）",
+            "news_count": len(news_out),
         },
         "config": {"alpha": ALPHA, "add_beta": ADD_BETA,
                    "risk_target_vol": RISK_TARGET_VOL, "hard_limits": HARD_LIMITS,
@@ -149,8 +153,31 @@ def build_snapshot(limit: int = 0) -> dict:
         "stocks": stocks_out,
         "returns": returns_out,
         "latest": latest_out,
+        "news": news_out,
     }
     return snap
+
+
+def _pack_news() -> list[list]:
+    """新闻打包成紧凑数组，浏览器端只做集合运算，不做文本分析。
+
+    [id, kind, title, summary, time, url, source, stocks, sectors, themes]
+    """
+    from . import news as news_mod
+    try:
+        news_mod.refresh_news()
+    except Exception:
+        pass
+    from . import store as _store
+    items = _store.load_news(limit=600)
+    if not items:
+        return []
+    ki = {"快讯": 0, "文章": 1, "研报": 2}
+    return [[it["id"], ki.get(it["kind"], 1), it["title"],
+             (it.get("summary") or "")[:200], (it.get("time") or "")[5:16],
+             it.get("url") or "", it.get("source") or "",
+             it.get("stocks") or [], it.get("sectors") or [], it.get("themes") or []]
+            for it in items]
 
 
 def write_snapshot(snap: dict, outdir: Path | None = None) -> list[str]:
@@ -158,17 +185,18 @@ def write_snapshot(snap: dict, outdir: Path | None = None) -> list[str]:
     outdir.mkdir(parents=True, exist_ok=True)
     written = []
 
-    # 主体（不含收益序列）先落盘，便于首屏快速加载
-    core = {k: v for k, v in snap.items() if k != "returns"}
+    # 主体（不含收益序列与新闻）先落盘，便于首屏快速加载
+    core = {k: v for k, v in snap.items() if k not in ("returns", "news")}
     p = outdir / "snapshot.json"
     p.write_text(json.dumps(core, ensure_ascii=False, separators=(",", ":")),
                  encoding="utf-8")
     written.append(str(p))
 
-    p2 = outdir / "returns.json"
-    p2.write_text(json.dumps({"dates": snap["dates"], "returns": snap["returns"]},
-                             ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    written.append(str(p2))
+    # 新闻单独成文件：更新频率高，且前端可异步加载，不阻塞首屏
+    p3 = outdir / "news.json"
+    p3.write_text(json.dumps({"news": snap.get("news") or []}, ensure_ascii=False,
+                             separators=(",", ":")), encoding="utf-8")
+    written.append(str(p3))
     return written
 
 
