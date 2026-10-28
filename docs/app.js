@@ -456,12 +456,12 @@
     const rows = [['组合当日', `<span class="${cls(pp.portfolio_pct)}">${pp.portfolio_pct == null ? '—' : (pp.portfolio_pct > 0 ? '+' : '') + pp.portfolio_pct.toFixed(2) + '%'}</span>`]];
     $('#pulse').innerHTML = kvHTML(rows);
     $('#pulseTbl').innerHTML = tableHTML(
-      ['ETF', '权重', '当日', '近20日均额(万)'],
+      ['ETF', '权重', '当日', termHTML('近20日均额(万)', '近20日均额')],
       (pp.holdings || []).map((h) => [
         `${h.name || ''} <span class="tiny">${h.code}</span>`,
         pct(h.weight),
         h.pct == null ? '—' : `<span class="${cls(h.pct)}">${h.pct > 0 ? '+' : ''}${h.pct.toFixed(2)}%</span>`,
-        num(h.amt20, 0),
+        (h.amt20 == null || h.amt20 <= 0) ? '<span class="tiny">—</span>' : num(h.amt20, 0),
       ]));
 
     const rr = b.risk_radar, c = rr.concentration || {};
