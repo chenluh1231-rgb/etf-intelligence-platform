@@ -42,19 +42,22 @@
     bind();
     restorePositions();     // 本机已有持仓则直接复用，不必再传
 
-    // 收益序列较大，后台静默加载，匹配前就绪即可
-    fetchJSON(BASE + 'data/returns.json').then((r) => {
-      RET = r;
-      ENGINE = new ETFEngine.Engine(SNAP, RET);
+    // 收益序列与资讯都是异步加载，完成后重建引擎并重算。
+    // 注意：两次重建必须互相补齐参数——若各自 new Engine，后完成的一个
+    // 会把先完成的那个数据冲掉（快讯「时有时无」就是这里竞态导致的）。
+    let RET_OK = false, NEWS_OK = false;
+    const rebuildEngine = () => {
+      if (!RET_OK) return;                    // 没有收益序列，引擎不完整
+      ENGINE = new ETFEngine.Engine(SNAP, RET, NEWS_OK ? NEWS : null);
       $('#loading').hidden = true;
       if (STATE.positions.length) runAll();
-    }).catch(() => { $('#loading').hidden = true; });
-    // 资讯单独一份，异步加载；加载失败也不影响其它模块
-    fetchJSON(BASE + 'data/news.json').then((r) => {
-      NEWS = r;
-      ENGINE = new ETFEngine.Engine(SNAP, RET, NEWS);
-      if (STATE.positions.length) runAll();
-    }).catch(() => {});
+    };
+    fetchJSON(BASE + 'data/returns.json')
+      .then((r) => { RET = r; RET_OK = true; rebuildEngine(); })
+      .catch(() => { RET_OK = true; rebuildEngine(); });   // 失败也放行，指标显示缺失
+    fetchJSON(BASE + 'data/news.json')
+      .then((r) => { NEWS = r; NEWS_OK = true; rebuildEngine(); })
+      .catch(() => { NEWS_OK = true; rebuildEngine(); });  // 失败也放行，快讯显示未加载
     setTimeout(() => { $('#loading').hidden = true; }, 2500);
   }
 
