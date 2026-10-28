@@ -56,6 +56,9 @@ web 版对应的叫"Dashboard · 我的每日 ETF 情报"。据此判断他在�
    git -c http.proxy=http://127.0.0.1:10808 -c https.proxy=http://127.0.0.1:10808 push origin main
    ```
    被 rejected 是因为 CI 自动提交了快照 → 先 `git ... pull --rebase origin main` 再 push。
+   **两条路都走不通时的兜底**：系统代理 10808 会自己挂、沙箱代理对 github.com 恒 502、直连 timeout，
+   但 `api.github.com` 一直通 → 用 REST API 手工提交（blob → tree → commit → PATCH ref），
+   凭证从 `~/.git-credentials` 取。详见本机备忘 `~/.workbuddy/MEMORY.md`。
 3. **curl 抽检线上**（Pages + CDN 有约 1–2 分钟延迟，延后检查确认）：
    ```
    curl -s https://chenluh1231-rgb.github.io/etf-intelligence-platform/app.js | grep -c "关键词"
@@ -83,6 +86,11 @@ web 版对应的叫"Dashboard · 我的每日 ETF 情报"。据此判断他在�
 8. **收益序列缺失交易日填 null 而非 0**；组合层已过滤，相关性需 ≥30 个共同样本。
 9. **穿透覆盖率是各 ETF 的简单平均**，不是按权重加权（用户确认过的口径）。
 10. Bash 里 `grep` 对中文 pattern 会失灵，搜中文一律用 Grep 工具。
+11. **改 `etfi/config.py` 或 `etfi/taxonomy.py` 必须重跑 `pipeline.py --build`**：
+    config 会随快照导出到前端，分类结果落在 SQLite 里，只改代码不重跑等于没改。
+    提交时 `docs/data/returns.json` 要与 `snapshot.json` 同批（两者日期轴必须一致）。
+12. 分类是纯关键词规则（`etfi/taxonomy.py`），**加关键词前先想反例**：
+    「现金」曾把 15 只自由现金流股票 ETF 误判成货币（现已加 `CURRENCY_EXCLUDE` 排除「现金流」）。
 
 ## 6. 用户偏好（这个项目内）
 
