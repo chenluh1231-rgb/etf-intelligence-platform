@@ -93,18 +93,21 @@ web 版对应的叫"Dashboard · 我的每日 ETF 情报"。据此判断他在�
 - 图表/表格优先，不要纯文字论证；涨红跌绿。
 - 每次改完都要同步线上并把网址给他。
 
-## 7. 接手后第一件该修的事（已发现的真实缺陷）
+## 7. 已修复的缺陷：returns.json 从未随快照更新（2026-10-28 修复）
 
-**`returns.json` 自首次提交后从未被更新。**
-`snapshot.write_snapshot()` 只写 `snapshot.json` 和 `news.json`，
-而前端的收益序列（相关性、分散化收益、组合波动、最大回撤）全部来自 `returns.json`。
-实测：snapshot 的 meta 已到 2026-10-28（`dates` 到 10-27），
-而 returns.json 的 `dates` 停在 **2026-10-26** —— 也就是说，
-当日涨跌是新数据、收益序列是旧数据，两者不一致，且会越拖越旧。
+`snapshot.write_snapshot()` 原先只写 `snapshot.json` 和 `news.json`，
+而前端的收益序列（相关性、分散化收益、组合波动、最大回撤）全部来自 `returns.json`
+（初始 Engine 传 `{dates, returns:{}}`，收益只能由 RET 补齐）。
+该文件只有首次提交，实测停在 2026-10-26，而快照已到 10-28 ——
+**当日涨跌是新数据、收益序列是旧数据**，且会越拖越旧。
 
-修法：让 `write_snapshot()` 把 `returns` 单独落盘为 `docs/data/returns.json`
-（格式 `{dates, returns}`，与现状一致），CI 就会每天一起更新。
-体积约 1.1MB，在 8MB 检查线内。
+修法：`write_snapshot()` 增加把 `{"dates", "returns"}` 落盘为 `docs/data/returns.json`
+（约 1.06MB），从此与 snapshot.json 同一次导出生成，日期轴必然一致。
+
+校验方式（每次跑完 pipeline 都应确认这两件事）：
+1. `returns.json.dates` 与 `snapshot.json.dates` **必须完全相等**——
+   前端 `Engine` 用 `ret.dates` 建日期索引，两个文件日期轴不一致会导致收益错位。
+2. `returns.json` 的 ETF 数与 `snapshot.json` 的 `etf_count` 相等。
 
 ## 8. 可直接复制的接手 Prompt
 

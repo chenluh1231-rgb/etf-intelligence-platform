@@ -192,6 +192,17 @@ def write_snapshot(snap: dict, outdir: Path | None = None) -> list[str]:
                  encoding="utf-8")
     written.append(str(p))
 
+    # 收益序列单独成文件：体积最大（约 1.1MB）且每日变化，
+    # 拆开后前端先渲染快照主体，序列异步补齐，不阻塞首屏。
+    # 注意：前端的相关性、分散化收益、组合波动与回撤全部依赖它，
+    # 必须与 snapshot.json 同步更新，否则这些指标会停在上一次导出的日期。
+    p2 = outdir / "returns.json"
+    p2.write_text(json.dumps({"dates": snap.get("dates") or [],
+                              "returns": snap.get("returns") or {}},
+                             ensure_ascii=False, separators=(",", ":")),
+                  encoding="utf-8")
+    written.append(str(p2))
+
     # 新闻单独成文件：更新频率高，且前端可异步加载，不阻塞首屏
     p3 = outdir / "news.json"
     p3.write_text(json.dumps({"news": snap.get("news") or []}, ensure_ascii=False,
