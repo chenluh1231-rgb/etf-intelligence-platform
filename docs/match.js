@@ -78,7 +78,10 @@
       this.cfg = snap.config || {};
       this.ALPHA = this.cfg.alpha || { goal: .30, preference: .20, complement: .20, cost: .15, risk: .15 };
       this.ADD_BETA = this.cfg.add_beta || { novelty: .35, exposure: .25, correlation: .20, goal: .20 };
-      this.RISK_TARGET_VOL = this.cfg.risk_target_vol || { 保守: 6, 稳健: 11, 平衡: 17, 积极: 24, 激进: 32 };
+      // 与 etfi/config.py 的 RISK_TARGET_VOL 保持一致（2026-10-28 按实测校准：
+      // 平衡 12% ≈ 股债七三，积极 18% ≈ 纯宽基，激进 26% ≈ 行业主题）
+      this.RISK_TARGET_VOL = this.cfg.risk_target_vol
+        || { 保守: 4, 稳健: 8, 平衡: 12, 积极: 18, 激进: 26 };
       this.HARD = this.cfg.hard_limits || { min_scale_yi: 2, max_fee: 1.5, exclude_leverage: true };
       this.GOAL_VECTORS = this.cfg.goal_vectors || {};
 

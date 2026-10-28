@@ -10,6 +10,10 @@ import re
 # ---- 资产类别判定（顺序敏感，先判货币/债券/商品，再判跨境，最后股票） ----
 CURRENCY_KW = ["货币", "现金", "添富现金", "保证金", "现金宝", "银华日利", "华宝添益",
                "日利", "添益", "交易货币"]
+# 反例必须写在前面：「自由现金流 / 中证现金流 / 300现金流」是股票因子指数，
+# 名字里含「现金」但绝不是货币基金。若不排除，这类股票 ETF 会被判成货币——
+# 后果是资产配置里算作现金（零波动、零权益敞口），且在目标向量里权益得分取 0。
+CURRENCY_EXCLUDE = ["现金流", "现金流量"]
 BOND_KW = [
     "国债", "政金", "政策性金融", "金融债", "信用债", "城投", "地方债", "短融", "中票",
     "可转债", "转债", "债ETF", "债券", "利率债", "同业存单", "同业", "高等级", "中高等级",
@@ -112,7 +116,7 @@ def classify(name: str, index_name: str = "", ftype: str = "") -> dict:
     asset_class, market = "境内股票", "A股"
     layer = "宽基"
 
-    if any(k in t for k in CURRENCY_KW):
+    if any(k in t for k in CURRENCY_KW) and not any(k in t for k in CURRENCY_EXCLUDE):
         return _pack("货币", "货币", "现金", [], [], [], [], name, index_name)
 
     if any(k in t for k in BOND_KW):
