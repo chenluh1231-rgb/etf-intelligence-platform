@@ -478,11 +478,11 @@ def _explain(r: dict, ctx: _ScoringContext, port: dict, profile: dict):
     if r.get("fee") is not None and r["fee"] <= 0.2:
         reasons.append(f"管理费率仅 {r['fee']:.2f}%，处于同类低位")
     if r.get("scale_yi") and r["scale_yi"] >= 50:
-        reasons.append(f"规模 {r['scale_yi']:.0f} 亿元，流动性与清盘风险较好")
+        reasons.append(f"规模 {r['scale_yi']:.0f} 亿元，流动性好、清盘风险低")
     if r.get("overlap_norm") is not None and r["overlap_norm"] <= 0.25:
-        reasons.append(f"与你现有组合的底层重叠仅 {r['overlap_norm']:.0%}，分散效果好")
+        reasons.append(f"与现有持仓的底层重叠仅 {r['overlap_norm']:.0%}，有助分散")
     if r.get("exposure_gain") is not None and r["exposure_gain"] >= 0.6:
-        reasons.append(f"带来 {r['exposure_gain']:.0%} 的全新底层暴露")
+        reasons.append(f"有 {r['exposure_gain']:.0%} 的底层持仓是你现有组合没有的")
 
     if r.get("overlap_norm") is not None and r["overlap_norm"] >= 0.5:
         mismatches.append(f"与现有组合底层重叠高达 {r['overlap_norm']:.0%}，"
@@ -490,7 +490,7 @@ def _explain(r: dict, ctx: _ScoringContext, port: dict, profile: dict):
     if r.get("fee") is not None and r["fee"] >= 0.6:
         mismatches.append(f"管理费率 {r['fee']:.2f}% 偏高，长期持有成本需考虑")
     if r.get("scale_yi") is not None and r["scale_yi"] < 5:
-        mismatches.append(f"规模仅 {r['scale_yi']:.2f} 亿元，存在流动性与清盘风险")
+        mismatches.append(f"规模仅 {r['scale_yi']:.2f} 亿元，流动性不足且面临清盘风险")
     if r.get("maxdd_1y") is not None and ctx.target_vol and r["maxdd_1y"] > 1.8 * ctx.target_vol:
         mismatches.append(f"近一年最大回撤 {r['maxdd_1y']:.1f}%，高于「{ctx.risk or '当前'}」"
                           f"风险水平对应的容忍区间")

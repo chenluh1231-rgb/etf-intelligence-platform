@@ -191,7 +191,7 @@ def _divergence(stated: dict, revealed: dict) -> list[dict]:
             w = tag_exp.get(f)
             if w is None:
                 out.append({"item": f, "type": "关注但未持有",
-                            "detail": f"关注的「{f}」在当前持仓中无对应暴露"})
+                            "detail": f"你关注了「{f}」，但当前持仓里还没有与它相关的资产"})
             elif w < 0.05:
                 out.append({"item": f, "type": "关注但占比很低",
                             "detail": f"关注的「{f}」仅占组合 {w:.1%}"})

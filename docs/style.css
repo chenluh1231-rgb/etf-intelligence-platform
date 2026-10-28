@@ -114,7 +114,7 @@ input[type=text], input[type=number], select {
 .mcard .mcode { color: var(--muted); font-size: 12px; }
 .mcard .score { margin-left: auto; text-align: right; }
 .mcard .score b { font-size: 19px; color: var(--accent); font-variant-numeric: tabular-nums; }
-.mcard .score span { display: block; font-size: 11px; color: var(--muted); }
+.mcard .score > span { display: block; font-size: 11px; color: var(--muted); }
 .dims { display: flex; gap: 10px; flex-wrap: wrap; margin: 10px 0 8px; font-size: 12px; }
 .dim { background: #f4f6f8; border-radius: 4px; padding: 3px 8px; }
 .dim b { font-variant-numeric: tabular-nums; }
@@ -196,6 +196,7 @@ input[type=text], input[type=number], select {
 .tipb {
   display: none; position: absolute; left: -6px; top: calc(100% + 6px);
   width: 320px; max-width: calc(100vw - 60px); z-index: 60;
+  pointer-events: none;
   background: #fff; color: var(--text);
   border: 1px solid var(--line); border-radius: 8px;
   padding: 11px 13px; font-size: 12.5px; line-height: 1.65;

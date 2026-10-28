@@ -478,15 +478,15 @@
         if (hit.length) reasons.push(`命中关注标签：${hit.slice(0, 4).join('、')}`);
       }
       if (r.fee != null && r.fee <= 0.2) reasons.push(`管理费率仅 ${r.fee.toFixed(2)}%，处于同类低位`);
-      if (r.scale_yi && r.scale_yi >= 50) reasons.push(`规模 ${r.scale_yi.toFixed(0)} 亿元，流动性与清盘风险较好`);
-      if (r.overlap_norm != null && r.overlap_norm <= 0.25) reasons.push(`与你现有组合的底层重叠仅 ${pctf(r.overlap_norm)}，分散效果好`);
-      if (r.exposure_gain != null && r.exposure_gain >= 0.6) reasons.push(`带来 ${pctf(r.exposure_gain)} 的全新底层暴露`);
+      if (r.scale_yi && r.scale_yi >= 50) reasons.push(`规模 ${r.scale_yi.toFixed(0)} 亿元，流动性好、清盘风险低`);
+      if (r.overlap_norm != null && r.overlap_norm <= 0.25) reasons.push(`与现有持仓的底层重叠仅 ${pctf(r.overlap_norm)}，有助分散`);
+      if (r.exposure_gain != null && r.exposure_gain >= 0.6) reasons.push(`有 ${pctf(r.exposure_gain)} 的底层持仓是你现有组合没有的`);
 
       if (r.overlap_norm != null && r.overlap_norm >= 0.5) {
         mismatches.push(`与现有组合底层重叠高达 ${pctf(r.overlap_norm)}，共同持仓占净值 ${((r.overlap_raw || 0) * 100).toFixed(2)}%，增量有限`);
       }
       if (r.fee != null && r.fee >= 0.6) mismatches.push(`管理费率 ${r.fee.toFixed(2)}% 偏高，长期持有成本需考虑`);
-      if (r.scale_yi != null && r.scale_yi < 5) mismatches.push(`规模仅 ${r.scale_yi.toFixed(2)} 亿元，存在流动性与清盘风险`);
+      if (r.scale_yi != null && r.scale_yi < 5) mismatches.push(`规模仅 ${r.scale_yi.toFixed(2)} 亿元，流动性不足且面临清盘风险`);
       if (r.maxdd_1y != null && ctx.targetVol && r.maxdd_1y > 1.8 * ctx.targetVol) {
         mismatches.push(`近一年最大回撤 ${r.maxdd_1y.toFixed(1)}%，高于「${ctx.risk || '当前'}」风险水平对应的容忍区间`);
       }
@@ -840,7 +840,7 @@
     const tagExp = revealed.tag_exposure || {};
     for (const f of focus) {
       const w = tagExp[f];
-      if (w == null) out.push({ item: f, type: '关注但未持有', detail: `关注的「${f}」在当前持仓中无对应暴露` });
+      if (w == null) out.push({ item: f, type: '关注但未持有', detail: `你关注了「${f}」，但当前持仓里还没有与它相关的资产` });
       else if (w < 0.05) out.push({ item: f, type: '关注但占比很低', detail: `关注的「${f}」仅占组合 ${(w * 100).toFixed(1)}%` });
     }
     const vol = revealed.weighted_vol_1y;
