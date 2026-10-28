@@ -656,7 +656,7 @@
         const pct = lt ? lt[1] : null;
         if (pct != null) { portPct += w * pct; wsum += w; }
         holdings.push({ code: p.code, name: (m && m.name) || '', weight: w, pct,
-                        price: lt ? lt[0] : null, amt20: lt ? lt[2] : null });
+                        price: lt ? lt[0] : null, scale_yi: m ? m.scale_yi : null });
       }
       if (wsum > 0) portPct = portPct / wsum;
       const movers = holdings.filter((h) => h.pct != null)
@@ -685,6 +685,23 @@
         .filter((e) => e.list_days > 0 && e.list_days < 120)
         .sort((a, b) => a.list_days - b.list_days).slice(0, 5)
         .map((e) => ({ code: e.code, name: e.name, list_days: e.list_days }));
+
+      // 产品发现的其它维度：规模旗舰 / 稳健低波 / 近一年领跑。
+      // 统一设流动性下限（规模 ≥ 10 亿）并剔除杠杆产品，避免迷你基金的
+      // 极端波动/收益值被当成「发现」推出来。
+      const LIQ_FLOOR = 10;
+      const tradable = this.etfs.filter((e) => !e.leveraged && (e.scale_yi || 0) >= LIQ_FLOOR);
+      const pick = (arr, key) => arr.slice(0, 6).map((e) => ({
+        code: e.code, name: e.name, layer: e.layer,
+        scale_yi: e.scale_yi, [key]: e[key],
+      }));
+      const scalePicks = pick(
+        [...tradable].filter((e) => e.scale_yi != null).sort((a, b) => b.scale_yi - a.scale_yi), 'scale_yi');
+      const lowVolPicks = pick(
+        tradable.filter((e) => e.vol_1y != null && e.layer !== '货币')
+          .sort((a, b) => a.vol_1y - b.vol_1y), 'vol_1y');
+      const topRetPicks = pick(
+        tradable.filter((e) => e.ret_1y != null).sort((a, b) => b.ret_1y - a.ret_1y), 'ret_1y');
 
       // 相关快讯与文章：只推与持仓/主题有关的，不做市场综述
       let newsBlock = { ok: false, fast: [], articles: [], n_scanned: 0, n_related: 0,
@@ -726,6 +743,9 @@
         etf_radar: {
           new_products: newest,
           low_fee_picks: Object.values(lowFee).sort((a, b) => a.fee - b.fee).slice(0, 8),
+          scale_picks: scalePicks,
+          low_vol_picks: lowVolPicks,
+          top_ret_picks: topRetPicks,
         },
         profile_gaps: profile.gaps,
         profile,

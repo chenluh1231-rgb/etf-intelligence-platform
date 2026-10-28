@@ -456,12 +456,12 @@
     const rows = [['组合当日', `<span class="${cls(pp.portfolio_pct)}">${pp.portfolio_pct == null ? '—' : (pp.portfolio_pct > 0 ? '+' : '') + pp.portfolio_pct.toFixed(2) + '%'}</span>`]];
     $('#pulse').innerHTML = kvHTML(rows);
     $('#pulseTbl').innerHTML = tableHTML(
-      ['ETF', '权重', '当日', termHTML('近20日均额(万)', '近20日均额')],
+      ['ETF', '权重', '当日', termHTML('最新规模(亿)', '最新规模')],
       (pp.holdings || []).map((h) => [
         `${h.name || ''} <span class="tiny">${h.code}</span>`,
         pct(h.weight),
         h.pct == null ? '—' : `<span class="${cls(h.pct)}">${h.pct > 0 ? '+' : ''}${h.pct.toFixed(2)}%</span>`,
-        (h.amt20 == null || h.amt20 <= 0) ? '<span class="tiny">—</span>' : num(h.amt20, 0),
+        (h.scale_yi == null || h.scale_yi <= 0) ? '<span class="tiny">—</span>' : num(h.scale_yi, 1),
       ]));
 
     const rr = b.risk_radar, c = rr.concentration || {};
@@ -485,6 +485,16 @@
     $('#lowFee').innerHTML = tableHTML(['层级', 'ETF', '管理费率', '规模(亿)'],
       (b.etf_radar.low_fee_picks || []).slice(0, 6).map((x) =>
         [x.layer, `${x.name} <span class="tiny">${x.code}</span>`, num(x.fee) + '%', num(x.scale_yi, 0)]));
+    $('#scaleTop').innerHTML = tableHTML(['层级', 'ETF', '规模(亿)', '管理费率'],
+      (b.etf_radar.scale_picks || []).map((x) =>
+        [x.layer, `${x.name} <span class="tiny">${x.code}</span>`, num(x.scale_yi, 0), num(x.fee) + '%']));
+    $('#lowVol').innerHTML = tableHTML(['层级', 'ETF', '年化波动', '规模(亿)'],
+      (b.etf_radar.low_vol_picks || []).map((x) =>
+        [x.layer, `${x.name} <span class="tiny">${x.code}</span>`, num(x.vol_1y) + '%', num(x.scale_yi, 0)]));
+    $('#topRet').innerHTML = tableHTML(['层级', 'ETF', '近一年收益', '规模(亿)'],
+      (b.etf_radar.top_ret_picks || []).map((x) =>
+        [x.layer, `${x.name} <span class="tiny">${x.code}</span>`,
+         `<span class="${cls(x.ret_1y)}">${num(x.ret_1y)}%</span>`, num(x.scale_yi, 0)]));
     $('#newEtf').innerHTML = (b.etf_radar.new_products || []).length
       ? b.etf_radar.new_products.map((x) =>
         `<li>${x.name} <span class="tiny">${x.code} · 上市约 ${x.list_days} 个交易日</span></li>`).join('')
@@ -668,10 +678,11 @@
   }
   function barsHTML(items) {
     if (!items.length) return '<p class="tiny">无数据</p>';
-    const max = Math.max(...items.map((x) => x.weight || 0), 0.0001);
+    // 条长用绝对占比：60% 就画 60% 宽（上限 100%），不做按最大值归一化，
+    // 否则最大一项永远顶满，读者无法从条长直接读出真实占比。
     return items.map((x) => `<div class="bar-row">
       <span>${x.sector}</span>
-      <span class="bar-outer"><span class="bar-fill" style="width:${((x.weight || 0) / max * 100).toFixed(1)}%"></span></span>
+      <span class="bar-outer"><span class="bar-fill" style="width:${Math.min((x.weight || 0) * 100, 100).toFixed(1)}%"></span></span>
       <span style="text-align:right">${pct(x.weight)}</span></div>`).join('');
   }
 
